@@ -1,0 +1,222 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <!-- Intern Info Card -->
+    <div class="bg-white rounded-lg shadow-md p-6 lg:col-span-1">
+        <div class="flex items-center space-x-4 mb-4">
+            <div class="bg-blue-100 text-blue-600 p-3 rounded-full">
+                <i class="bi bi-person-fill text-2xl"></i>
+            </div>
+            <div>
+                <h2 class="text-xl font-bold">{{ intern.user.get_full_name }}</h2>
+                <p class="text-gray-600">{{ intern.department }}</p>
+            </div>
+        </div>
+        
+        <div class="space-y-3">
+            <div class="flex items-center">
+                <i class="bi bi-building mr-2 text-gray-500"></i>
+                <span>{{ organization.name }}</span>
+            </div>
+            <div class="flex items-center">
+                <i class="bi bi-telephone mr-2 text-gray-500"></i>
+                <span>{{ intern.phone_number }}</span>
+            </div>
+            <div class="flex items-center">
+                <i class="bi bi-geo-alt mr-2 text-gray-500"></i>
+                <span>{{ organization.address }}</span>
+            </div>
+        </div>
+        
+        <div id="location-status" class="mt-6 p-4 rounded-lg bg-blue-50 border border-blue-100">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h3 class="font-medium">Current Status</h3>
+                    <p id="current-status" class="text-sm text-gray-600">Waiting for location...</p>
+                </div>
+                <div id="status-indicator" class="h-3 w-3 rounded-full bg-gray-300"></div>
+            </div>
+            <p id="current-address" class="text-sm mt-2"></p>
+        </div>
+        
+        <button id="start-tracking" class="mt-4 w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition flex items-center justify-center">
+            <i class="bi bi-geo-fill mr-2"></i> Start Tracking
+        </button>
+    </div>
+    
+    <!-- Map and Tracking Section -->
+    <div class="bg-white rounded-lg shadow-md p-6 lg:col-span-2">
+        <h2 class="text-xl font-bold mb-4 flex items-center">
+            <i class="bi bi-map mr-2"></i> Location Tracking
+        </h2>
+        
+        <div id="map" class="rounded-lg overflow-hidden mb-4"></div>
+        
+        <div class="bg-gray-50 p-4 rounded-lg">
+            <h3 class="font-medium mb-2">Recent Locations</h3>
+            <div class="space-y-2 max-h-60 overflow-y-auto">
+                {% for loc in locations %}
+                <div class="flex items-center justify-between p-2 hover:bg-gray-100 rounded">
+                    <div>
+                        <span class="text-sm font-medium">{{ loc.timestamp|date:"H:i" }}</span>
+                        <span class="text-xs text-gray-500 ml-2">{{ loc.address|truncatechars:30 }}</span>
+                    </div>
+                    <span class="text-xs px-2 py-1 rounded-full {% if loc.is_inside_geofence %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                        {% if loc.is_inside_geofence %}Inside{% else %}Outside{% endif %}
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Initialize Leaflet map
+    const orgLocation = [{{ organization.location.y }}, {{ organization.location.x }}];
+    const map = L.map('map').setView(orgLocation, 15);
+
+    // Add OpenStreetMap tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(map);
+
+    // Add geofence circle
+    L.circle(orgLocation, {
+        radius: {{ organization.geofence_radius }},
+        color: '#3b82f6',
+        fillColor: '#3b82f6',
+        fillOpacity: 0.2,
+        weight: 2
+    }).addTo(map);
+
+    // Add organization marker
+    L.marker(orgLocation, {
+        icon: L.divIcon({
+            className: 'org-marker',
+            html: '<i class="bi bi-building text-white bg-blue-600 rounded-full p-1"></i>',
+            iconSize: [24, 24]
+        })
+    }).bindPopup("<b>{{ organization.name }}</b>").addTo(map);
+
+    // Track user location
+    let userMarker = null;
+    let watchId = null;
+
+    document.getElementById('start-tracking').addEventListener('click', function() {
+        if (watchId !== null) {
+            navigator.geolocation.clearWatch(watchId);
+            watchId = null;
+            this.innerHTML = '<i class="bi bi-geo-fill mr-2"></i> Start Tracking';
+            if (userMarker) map.removeLayer(userMarker);
+            return;
+        }
+
+        if (!navigator.geolocation) {
+            alert("Geolocation is not supported by your browser");
+            return;
+        }
+
+        this.innerHTML = '<i class="bi bi-geo-alt-fill mr-2"></i> Stop Tracking';
+        
+        watchId = navigator.geolocation.watchPosition(
+            position => {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                const acc = position.coords.accuracy;
+                
+                // Update status UI
+                document.getElementById('current-status').textContent = 
+                    `Location updated: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+                
+                // Update map
+                map.setView([lat, lng], 15);
+                
+                // Add/update user marker
+                if (userMarker) {
+                    userMarker.setLatLng([lat, lng]);
+                } else {
+                    userMarker = L.marker([lat, lng], {
+                        icon: L.divIcon({
+                            className: 'user-marker',
+                            html: '<i class="bi bi-person-fill text-white bg-blue-600 rounded-full p-1"></i>',
+                            iconSize: [24, 24]
+                        })
+                    }).addTo(map);
+                }
+                
+                // Add accuracy circle
+                if (window.accuracyCircle) {
+                    map.removeLayer(window.accuracyCircle);
+                }
+                window.accuracyCircle = L.circle([lat, lng], {
+                    radius: acc,
+                    color: '#888',
+                    fillColor: '#888',
+                    fillOpacity: 0.1,
+                    weight: 1
+                }).addTo(map);
+
+                // Send to server
+                fetch('{% url "update_location" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({
+                        latitude: lat,
+                        longitude: lng,
+                        accuracy: acc
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // Update UI with response
+                    const statusEl = document.getElementById('status-indicator');
+                    const addressEl = document.getElementById('current-address');
+                    
+                    if (data.is_inside) {
+                        statusEl.className = 'h-3 w-3 rounded-full bg-green-500';
+                        userMarker.setIcon(L.divIcon({
+                            className: 'user-marker',
+                            html: '<i class="bi bi-person-fill text-white bg-green-600 rounded-full p-1"></i>',
+                            iconSize: [24, 24]
+                        }));
+                        addressEl.textContent = `Inside geofence: ${data.address}`;
+                    } else {
+                        statusEl.className = 'h-3 w-3 rounded-full bg-red-500';
+                        userMarker.setIcon(L.divIcon({
+                            className: 'user-marker',
+                            html: '<i class="bi bi-person-fill text-white bg-red-600 rounded-full p-1"></i>',
+                            iconSize: [24, 24]
+                        }));
+                        addressEl.textContent = `Outside geofence: ${data.address}`;
+                    }
+                });
+            },
+            error => {
+                console.error("Error getting location:", error);
+                document.getElementById('current-status').textContent = `Error: ${error.message}`;
+                document.getElementById('status-indicator').className = 'h-3 w-3 rounded-full bg-yellow-500';
+            },
+            {
+                enableHighAccuracy: true,
+                maximumAge: 0,
+                timeout: 5000
+            }
+        );
+    });
+</script>
+
+<style>
+    .org-marker, .user-marker {
+        background: transparent !important;
+        border: none !important;
+    }
+    .leaflet-control-attribution {
+        font-size: 9px;
+    }
+</style>
+{% endblock %}

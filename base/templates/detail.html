@@ -1,0 +1,222 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="flex justify-between items-start mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-800 flex items-center">
+                <i class="bi bi-person-badge mr-2 text-blue-600"></i>
+                {{ intern.user.get_full_name }}
+            </h1>
+            <nav class="flex mt-2" aria-label="Breadcrumb">
+                <ol class="flex items-center space-x-2">
+                    <li>
+                        <a href="{% url 'core:intern_list' %}" class="text-blue-600 hover:text-blue-800 text-sm">Interns</a>
+                    </li>
+                    <li>
+                        <i class="bi bi-chevron-right text-gray-400"></i>
+                    </li>
+                    <li class="text-sm text-gray-500" aria-current="page">
+                        {{ intern.user.get_full_name }}
+                    </li>
+                </ol>
+            </nav>
+        </div>
+        <div class="flex space-x-2">
+            <a href="#" class="px-4 py-2 bg-yellow-100 text-yellow-700 rounded-md hover:bg-yellow-200 transition flex items-center">
+                <i class="bi bi-pencil mr-2"></i>Edit
+            </a>
+            <a href="{% url 'core:location_history' %}" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition flex items-center">
+                <i class="bi bi-clock-history mr-2"></i>Full History
+            </a>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Profile Card -->
+        <div class="bg-white shadow rounded-lg overflow-hidden">
+            <div class="px-6 py-4 border-b">
+                <h2 class="text-lg font-medium text-gray-900">Profile Information</h2>
+            </div>
+            <div class="px-6 py-4">
+                <div class="flex items-center mb-4">
+                    <div class="flex-shrink-0 h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center">
+                        <i class="bi bi-person text-blue-600 text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <h3 class="text-lg font-medium text-gray-900">{{ intern.user.get_full_name }}</h3>
+                        <p class="text-sm text-gray-500">{{ intern.department }}</p>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500">Email</label>
+                        <p class="mt-1 text-sm text-gray-900">{{ intern.user.email }}</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500">Phone</label>
+                        <p class="mt-1 text-sm text-gray-900">{{ intern.phone_number }}</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500">Organization</label>
+                        <p class="mt-1 text-sm text-gray-900">{{ intern.organization.name }}</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500">Status</label>
+                        <span class="mt-1 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+                            {% if intern.is_active %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                            {% if intern.is_active %}Active{% else %}Inactive{% endif %}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Location Stats -->
+        <div class="bg-white shadow rounded-lg overflow-hidden lg:col-span-2">
+            <div class="px-6 py-4 border-b">
+                <h2 class="text-lg font-medium text-gray-900">Location Activity</h2>
+            </div>
+            <div class="px-6 py-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div class="bg-blue-50 p-4 rounded-lg">
+                        <div class="flex items-center">
+                            <div class="p-2 rounded-full bg-blue-100 text-blue-600 mr-3">
+                                <i class="bi bi-geo-alt"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">Total Check-ins</p>
+                                <p class="text-xl font-semibold text-gray-900">{{ locations|length }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-green-50 p-4 rounded-lg">
+                        <div class="flex items-center">
+                            <div class="p-2 rounded-full bg-green-100 text-green-600 mr-3">
+                                <i class="bi bi-check-circle"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">Inside Geofence</p>
+                                <p class="text-xl font-semibold text-gray-900">{{ locations|length|add:"-violations" }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-red-50 p-4 rounded-lg">
+                        <div class="flex items-center">
+                            <div class="p-2 rounded-full bg-red-100 text-red-600 mr-3">
+                                <i class="bi bi-exclamation-triangle"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">Violations</p>
+                                <p class="text-xl font-semibold text-gray-900">{{ violations }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="text-md font-medium text-gray-900">Recent Locations</h3>
+                        <div class="flex space-x-2">
+                            <select class="text-sm border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                                <option {% if time_filter == 'today' %}selected{% endif %}>Today</option>
+                                <option {% if time_filter == 'week' %}selected{% endif %}>This Week</option>
+                                <option {% if time_filter == 'month' %}selected{% endif %}>This Month</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="overflow-hidden shadow ring-1 ring-black ring-opacity-5 rounded-lg">
+                        <table class="min-w-full divide-y divide-gray-300">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Time</th>
+                                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Location</th>
+                                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200 bg-white">
+                                {% for loc in locations|slice:":5" %}
+                                <tr>
+                                    <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm text-gray-500">
+                                        {{ loc.timestamp|date:"H:i" }}
+                                    </td>
+                                    <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                        {{ loc.address|truncatechars:30 }}
+                                    </td>
+                                    <td class="whitespace-nowrap px-3 py-4 text-sm">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+                                            {% if loc.is_inside_geofence %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                                            {% if loc.is_inside_geofence %}
+                                            <i class="bi bi-check-circle mr-1"></i> Inside
+                                            {% else %}
+                                            <i class="bi bi-exclamation-triangle mr-1"></i> Outside
+                                            {% endif %}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Map Container -->
+                <div class="h-64 rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
+                    <div id="intern-map" class="h-full w-full"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Leaflet map for intern detail view
+    const internMap = L.map('intern-map').setView(
+        [{{ intern.organization.location.y }}, {{ intern.organization.location.x }}], 
+        14
+    );
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap'
+    }).addTo(internMap);
+
+    // Geofence
+    L.circle(
+        [{{ intern.organization.location.y }}, {{ intern.organization.location.x }}],
+        {
+            radius: {{ intern.organization.geofence_radius }},
+            color: '#3b82f6',
+            fillColor: '#3b82f6',
+            fillOpacity: 0.2,
+            weight: 2
+        }
+    ).addTo(internMap);
+
+    // Organization marker
+    L.marker([{{ intern.organization.location.y }}, {{ intern.organization.location.x }}], {
+        icon: L.divIcon({
+            className: 'org-marker',
+            html: '<i class="bi bi-building text-white bg-blue-600 rounded-full p-1"></i>',
+            iconSize: [24, 24]
+        })
+    }).bindPopup("<b>{{ intern.organization.name }}</b>").addTo(internMap);
+
+    // Intern's last location
+    {% with last_loc=locations.first %}
+    {% if last_loc %}
+    L.marker([{{ last_loc.point.y }}, {{ last_loc.point.x }}], {
+        icon: L.divIcon({
+            className: 'user-marker',
+            html: `<i class="bi bi-person-fill text-white rounded-full p-1 ${% if last_loc.is_inside_geofence %}'bg-green-600'{% else %}'bg-red-600'{% endif %}"></i>`,
+            iconSize: [24, 24]
+        })
+    }).bindPopup(`
+        <b>{{ intern.user.get_full_name }}</b><br>
+        {{ last_loc.timestamp|date:"M d, Y H:i" }}<br>
+        {% if last_loc.is_inside_geofence %}Inside{% else %}Outside{% endif %} geofence
+    `).addTo(internMap);
+    {% endif %}
+    {% endwith %}
+</script>
+{% endblock %}

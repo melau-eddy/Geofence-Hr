@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="max-w-4xl mx-auto">
+        <div class="mb-6">
+            <h1 class="text-2xl font-bold text-gray-800 flex items-center">
+                <i class="bi bi-building mr-2 text-blue-600"></i>
+                Organization Settings
+            </h1>
+            <nav class="flex mt-2" aria-label="Breadcrumb">
+                <ol class="flex items-center space-x-2">
+                    <li>
+                        <a href="{% url 'core:organization_dashboard' %}" class="text-blue-600 hover:text-blue-800 text-sm">Organization</a>
+                    </li>
+                    <li>
+                        <i class="bi bi-chevron-right text-gray-400"></i>
+                    </li>
+                    <li class="text-sm text-gray-500" aria-current="page">
+                        Settings
+                    </li>
+                </ol>
+            </nav>
+        </div>
+
+        <div class="bg-white shadow rounded-lg overflow-hidden">
+            <div class="px-6 py-4 border-b">
+                <h2 class="text-lg font-medium text-gray-900">Basic Information</h2>
+                <p class="mt-1 text-sm text-gray-500">Update your organization's details and location settings.</p>
+            </div>
+            
+            <form method="POST" class="px-6 py-4">
+                {% csrf_token %}
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div>
+                        <label for="{{ form.name.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Organization Name</label>
+                        {{ form.name }}
+                        {% if form.name.errors %}
+                            <p class="mt-1 text-sm text-red-600">{{ form.name.errors.as_text }}</p>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <label for="{{ form.geofence_radius.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Geofence Radius (meters)</label>
+                        <div class="relative rounded-md shadow-sm">
+                            {{ form.geofence_radius }}
+                            <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                <span class="text-gray-500 sm:text-sm">m</span>
+                            </div>
+                        </div>
+                        {% if form.geofence_radius.errors %}
+                            <p class="mt-1 text-sm text-red-600">{{ form.geofence_radius.errors.as_text }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="mb-6">
+                    <label for="{{ form.address.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                    {{ form.address }}
+                    {% if form.address.errors %}
+                        <p class="mt-1 text-sm text-red-600">{{ form.address.errors.as_text }}</p>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Location on Map</label>
+                    <div class="h-64 rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
+                        <div id="map-edit" class="h-full w-full"></div>
+                    </div>
+                    <p class="mt-1 text-sm text-gray-500">Click on the map to set your organization's location.</p>
+                    <input type="hidden" id="id_location" name="location" value="{{ form.location.value }}">
+                </div>
+                
+                <div class="flex justify-end space-x-3 pt-4 border-t">
+                    <a href="{% url 'core:organization_dashboard' %}" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        Cancel
+                    </a>
+                    <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Leaflet map for location editing
+    const editMap = L.map('map-edit');
+    let marker;
+
+    // Set initial view
+    {% if form.location.value %}
+        const initialCoords = {{ form.location.value }};
+        editMap.setView([initialCoords.y, initialCoords.x], 15);
+        marker = L.marker([initialCoords.y, initialCoords.x], {draggable: true}).addTo(editMap);
+    {% else %}
+        editMap.setView([0, 0], 2); // Default world view
+    {% endif %}
+
+    // Add tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(editMap);
+
+    // Click handler
+    editMap.on('click', function(e) {
+        const coords = e.latlng;
+        
+        if (marker) {
+            marker.setLatLng(coords);
+        } else {
+            marker = L.marker(coords, {draggable: true}).addTo(editMap);
+            marker.on('dragend', updateLocationField);
+        }
+        
+        updateLocationField();
+    });
+
+    function updateLocationField() {
+        if (marker) {
+            const latLng = marker.getLatLng();
+            document.getElementById('id_location').value = `POINT(${latLng.lng} ${latLng.lat})`;
+        }
+    }
+</script>
+{% endblock %}
