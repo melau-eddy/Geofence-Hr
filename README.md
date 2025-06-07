@@ -47,5 +47,5 @@ To help HR teams ensure that interns remain within the designated company vicini
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/your-username/geofencing-hr-monitor.git
+   git clone https://github.com/melau-eddy/Geofence-Hr
    cd geofencing-hr-monitor
